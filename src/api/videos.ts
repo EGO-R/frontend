@@ -1,11 +1,89 @@
+import {urlFromBack, urlToBack} from "@/api/urlUtils";
+
 export interface Video {
     id: number;
     name: string;
     preview: string;
+    videoUrl: string;
     author: {
         id: number;
         name: string;
     };
+}
+
+interface VideoResponse {
+    id: number;
+    name: string;
+    previewKey: string;
+    videoKey: string;
+    author: {
+        id: number;
+        name: string;
+    };
+}
+
+// Функция конвертации из VideoResponse в Video
+function mapVideoResponse(video: VideoResponse): Video {
+    return {
+        id: video.id,
+        name: video.name,
+        preview: urlFromBack(video.previewKey),
+        videoUrl: urlFromBack(video.videoKey),
+        author: video.author,
+    };
+}
+
+// Для массивов
+function mapVideoListResponse(videos: VideoResponse[]): Video[] {
+    return videos.map(mapVideoResponse);
+}
+
+// Пример обновлённой функции запроса одного видео
+export async function fetchVideoById(id: number): Promise<Video> {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}`);
+
+    if (!res.ok) {
+        throw new Error('Ошибка загрузки видео');
+    }
+
+    const data: VideoResponse = await res.json();
+    return mapVideoResponse(data);
+}
+
+// получение presigned ссылки
+export async function getPresignedUploadUrl(): Promise<string> {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/upload`);
+
+    if (!res.ok) {
+        throw new Error('Не удалось получить ссылку для загрузки видео');
+    }
+
+    const data = await res.json();
+    return data.url;
+}
+
+// редактирование названия
+export async function updateVideoName(id: number, name: string) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}/update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+    });
+
+    if (!res.ok) {
+        throw new Error('Ошибка обновления названия видео');
+    }
+}
+
+// удаление видео
+export async function deleteVideo(id: number) {
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}`, {
+        method: 'DELETE',
+    });
+
+    if (!res.ok) {
+        throw new Error('Ошибка удаления видео');
+    }
 }
 
 // Интерфейс для параметров поиска
@@ -18,6 +96,28 @@ export interface VideoSearchQuery {
         size?: number;
         lastSelectedValue?: string;
     };
+}
+
+export async function createVideo(
+    name: string,
+    previewFile: File,
+    videoUrl: string,
+): Promise<Video> {
+    const formData = new FormData();
+    formData.append('name', name);
+    formData.append('preview', previewFile);
+    formData.append('videoUrl', urlToBack(videoUrl));
+
+    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/create`, {
+        method: 'POST',
+        body: formData,
+    });
+
+    if (!res.ok) {
+        throw new Error('Ошибка сохранения видео на сервере');
+    }
+
+    return res.json();
 }
 
 // Функция генерации query-строки
@@ -52,5 +152,6 @@ export async function fetchVideos(params?: VideoSearchQuery): Promise<Video[]> {
         throw new Error('Ошибка при загрузке видео');
     }
 
-    return res.json();
+    const data: VideoResponse[] = await res.json();
+    return mapVideoListResponse(data);
 }

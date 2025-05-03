@@ -5,8 +5,8 @@ const nextConfig: NextConfig = {
         remotePatterns: [
             {
                 protocol: 'https',
-                // hostname: 'storage.yandexcloud.net',
-                hostname: '**',
+                hostname: 'storage.yandexcloud.net',
+                // hostname: '**',
             },
         ],
     },
