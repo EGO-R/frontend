@@ -1,4 +1,5 @@
 import {urlFromBack, urlToBack} from "@/api/urlUtils";
+import {fetchWithAuth} from "@/api/fetchWithAuth";
 
 export interface Video {
     id: number;
@@ -40,7 +41,7 @@ function mapVideoListResponse(videos: VideoResponse[]): Video[] {
 
 // Пример обновлённой функции запроса одного видео
 export async function fetchVideoById(id: number): Promise<Video> {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}`);
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}`);
 
     if (!res.ok) {
         throw new Error('Ошибка загрузки видео');
@@ -52,7 +53,7 @@ export async function fetchVideoById(id: number): Promise<Video> {
 
 // получение presigned ссылки
 export async function getPresignedUploadUrl(): Promise<string> {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/upload`);
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/upload`);
 
     if (!res.ok) {
         throw new Error('Не удалось получить ссылку для загрузки видео');
@@ -64,7 +65,7 @@ export async function getPresignedUploadUrl(): Promise<string> {
 
 // редактирование названия
 export async function updateVideoName(id: number, name: string) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}/update`, {
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}/update`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name }),
@@ -77,7 +78,7 @@ export async function updateVideoName(id: number, name: string) {
 
 // удаление видео
 export async function deleteVideo(id: number) {
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}`, {
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/${id}`, {
         method: 'DELETE',
     });
 
@@ -108,7 +109,7 @@ export async function createVideo(
     formData.append('preview', previewFile);
     formData.append('videoUrl', urlToBack(videoUrl));
 
-    const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/create`, {
+    const res = await fetchWithAuth(`${process.env.NEXT_PUBLIC_API_URL}/api/videos/create`, {
         method: 'POST',
         body: formData,
     });
@@ -146,7 +147,7 @@ export async function fetchVideos(params?: VideoSearchQuery): Promise<Video[]> {
         url += `?${queryString}`;
     }
 
-    const res = await fetch(url);
+    const res = await fetchWithAuth(url);
 
     if (!res.ok) {
         throw new Error('Ошибка при загрузке видео');

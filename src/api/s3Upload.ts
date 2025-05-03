@@ -1,5 +1,7 @@
+import {fetchWithAuth} from "@/api/fetchWithAuth";
+
 export async function uploadFileToS3(presignedUrl: string, file: File) {
-    const res = await fetch(presignedUrl, {
+    const res = await fetchWithAuth(presignedUrl, {
         method: 'PUT',
         body: file,
         headers: {
