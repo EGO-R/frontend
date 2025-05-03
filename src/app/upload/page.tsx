@@ -1,10 +1,12 @@
 'use client';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { getPresignedUploadUrl, createVideo } from '@/api/videos';
+import { uploadFileToS3 } from '@/api/s3Upload';
 
 interface VideoFormData {
     name: string;
-    preview: string;
+    preview: File | null;
     videoFile: File | null;
 }
 
@@ -13,7 +15,7 @@ export default function UploadVideo() {
 
     const [formData, setFormData] = useState<VideoFormData>({
         name: '',
-        preview: '',
+        preview: null,
         videoFile: null,
     });
 
@@ -22,16 +24,9 @@ export default function UploadVideo() {
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const { name, value, files } = e.target;
-        if (name === 'file' && files) {
-            // Обрабатываем выбор файла
-            const videoFile = files[0];
-            if (videoFile.size > 5 * 1024 * 1024 * 1024) {
-                setError('Файл больше 5 ГБ!');
-                return;
-            }
-            setFormData({ ...formData, videoFile: videoFile });
+        if (files && files.length > 0) {
+            setFormData({ ...formData, [name]: files[0] });
         } else {
-            // Обычное текстовое поле
             setFormData({ ...formData, [name]: value });
         }
     };
@@ -41,32 +36,34 @@ export default function UploadVideo() {
         setLoading(true);
         setError('');
 
-        // Создаем FormData и добавляем поля
-        const form = new FormData();
-        form.append('name', formData.name);
-        form.append('preview', formData.preview);
-        if (formData.videoFile) {
-            form.append('videoFile', formData.videoFile);
+        if (!formData.videoFile || !formData.preview) {
+            setError('Заполните все поля и выберите файлы.');
+            setLoading(false);
+            return;
         }
 
-        try {
-            const response = await fetch(
-                `${process.env.NEXT_PUBLIC_API_URL}/api/videos/create`,
-                {
-                    method: 'POST',
-                    body: form,
-                }
-            );
+        if (formData.videoFile.size > 5 * 1024 * 1024 * 1024) {
+            setError("Видео не должно превышать 5 ГБ");
             setLoading(false);
+            return;
+        }
 
-            if (!response.ok) {
-                setError('Ошибка при загрузке видео');
-            } else {
-                router.push('/');
-            }
-        } catch (err) {
+
+        try {
+            // Шаг 1: Получаем presigned URL
+            const presignedUrl = await getPresignedUploadUrl();
+
+            // Шаг 2: Загружаем видео в S3
+            await uploadFileToS3(presignedUrl, formData.videoFile);
+
+            // Шаг 3: Отправляем VideoCreateDto на бекенд
+            const video = await createVideo(formData.name, formData.preview, presignedUrl.split('?')[0]);
+
+            router.push(`/video/${video.id}`);
+        } catch (err: any) {
+            setError(err.message || 'Ошибка при загрузке видео.');
+        } finally {
             setLoading(false);
-            setError('Ошибка соединения с сервером.');
         }
     };
 
@@ -84,22 +81,24 @@ export default function UploadVideo() {
                     required
                 />
 
+                <label className="font-medium">Превью-картинка:</label>
                 <input
-                    type="text"
+                    type="file"
                     name="preview"
-                    placeholder="Ссылка на превью"
-                    value={formData.preview}
+                    accept="image/*"
                     onChange={handleChange}
                     className="border p-2 rounded"
                     required
                 />
 
+                <label className="font-medium">Файл видео (до 5 ГБ):</label>
                 <input
                     type="file"
-                    name="file"
+                    name="videoFile"
                     accept="video/*"
                     onChange={handleChange}
                     className="border p-2 rounded"
+                    required
                 />
 
                 {error && <p className="text-red-600">{error}</p>}
